@@ -1,0 +1,37 @@
+# 1시간마다 인천 11개 군·구 지금 기온(기상청 초단기실황) → now.json
+# 기록은 한 커밋에 덮어쓴다(--amend + 강제 푸시) — 매시간 커밋이 쌓이지 않게. 실패하면 이번 시간은 건너뛴다
+name: 지금 기온
+
+on:
+  schedule:
+    - cron: '45 * * * *'   # 매시 45분(UTC) — 기상청 실황이 40분쯤 나온다
+    - cron: '15 * * * *'   # 깃허브 예약은 늦거나 빠지는 때가 있어 한 번 더(공개 저장소라 무료). 실황은 같은 값이면 커밋 안 함
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: now
+  cancel-in-progress: false
+
+jobs:
+  now:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 지금 기온
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: node now.mjs
+      - name: 기록
+        run: |
+          git config user.name "incheon-weather-bot"
+          git config user.email "incheon-weather-bot@users.noreply.github.com"
+          git add now.json
+          if git diff --cached --quiet; then echo "바뀐 것 없음"; exit 0; fi
+          git commit --amend --no-edit -q && git push -f -q
